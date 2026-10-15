@@ -26,8 +26,10 @@ import (
 )
 
 // applyEnv sets each flag not given on the command line from its environment
-// variable, so the order is command line, then environment, then default.
-func applyEnv(fs *pflag.FlagSet) error {
+// variable, so the order is command line, then environment, then default. It
+// returns the variables it applied.
+func applyEnv(fs *pflag.FlagSet) ([]string, error) {
+	var applied []string
 	var errs []error
 	fs.VisitAll(func(f *pflag.Flag) {
 		if f.Changed || f.Name == "help" {
@@ -40,9 +42,11 @@ func applyEnv(fs *pflag.FlagSet) error {
 		}
 		if err := fs.Set(f.Name, v); err != nil {
 			errs = append(errs, fmt.Errorf("$%s: %w", name, err))
+			return
 		}
+		applied = append(applied, "$"+name)
 	})
-	return errors.Join(errs...)
+	return applied, errors.Join(errs...)
 }
 
 // envName is a flag's environment variable: its name in capitals, with - as _.

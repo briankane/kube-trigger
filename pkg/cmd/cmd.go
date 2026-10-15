@@ -99,10 +99,17 @@ func NewCommand() *cobra.Command {
 		RunE: runCli,
 		PreRunE: func(c *cobra.Command, _ []string) error {
 			logger.Infof("kube-trigger version=%s", version.Version)
-			if err := applyEnv(c.Flags()); err != nil {
+			fromEnv, err := applyEnv(c.Flags())
+			if err != nil {
 				return err
 			}
-			return opt.validate()
+			if err := opt.validate(); err != nil {
+				if len(fromEnv) > 0 {
+					return fmt.Errorf("%w (options set from the environment: %s)", err, strings.Join(fromEnv, ", "))
+				}
+				return err
+			}
+			return nil
 		},
 	}
 	c.AddCommand(newVersionCommand())
@@ -133,6 +140,7 @@ func addFlags(opt *option, f *pflag.FlagSet) {
 	f.IntVar(&opt.RetryDelay, FlagRetryDelay, defaultRetryDelay, "First delay to retry actions in seconds, subsequent delay will grow exponentially")
 	f.IntVar(&opt.Timeout, FlagTimeout, defaultTimeout, "Timeout for running each action")
 	f.IntVar(&opt.RegistrySize, FlagRegistrySize, defaultRegistrySize, "Cache size for filters and actions")
+	f.BoolVar(&opt.ActionRetry, FlagActionRetry, defaultActionRetry, "Re-run an action if it fails, up to --max-retry times")
 	f.StringVar(&k8sresourcewatcher.MultiClusterConfigType, "multi-cluster-config-type", k8sresourcewatcher.TypeClusterGateway, "Multi-cluster config type, supported types: cluster-gateway, cluster-gateway-kubeconfig")
 	f.BoolVar(&enableLeaderElection, FlagLeaderElect, false, "Enable leader election for kube-trigger. Enabling this will ensure there is only one active kube-trigger.")
 	f.DurationVar(&leaseDuration, FlagLeaderElectionLeaseDuration, defaultLeaseDuration, "The duration that non-leader candidates will wait to force acquire leadership.")

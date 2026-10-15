@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -25,13 +26,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// clearEnv unsets every flag's variable for the test, so nothing the test
+// process inherits leaks in.
+func clearEnv(t *testing.T, fs *pflag.FlagSet) {
+	fs.VisitAll(func(f *pflag.Flag) {
+		t.Setenv(envName(f.Name), "")
+		require.NoError(t, os.Unsetenv(envName(f.Name)))
+	})
+}
+
 // parse reads args into a fresh option, then applies the environment.
 func parse(t *testing.T, args ...string) (*option, error) {
 	o := newOption()
 	fs := pflag.NewFlagSet("kubetrigger", pflag.ContinueOnError)
 	addFlags(o, fs)
 	require.NoError(t, fs.Parse(args))
-	return o, applyEnv(fs)
+	_, err := applyEnv(fs)
+	return o, err
 }
 
 func TestEnvSetsAFlagNotGiven(t *testing.T) {
@@ -49,6 +60,9 @@ func TestFlagBeatsEnv(t *testing.T) {
 }
 
 func TestDefaultWithoutEither(t *testing.T) {
+	fs := pflag.NewFlagSet("kubetrigger", pflag.ContinueOnError)
+	addFlags(newOption(), fs)
+	clearEnv(t, fs)
 	o, err := parse(t)
 	require.NoError(t, err)
 	assert.Equal(t, defaultMaxRetry, o.MaxRetry)
@@ -71,9 +85,32 @@ func TestBadEnvValueNamesItsVariable(t *testing.T) {
 	assert.ErrorContains(t, err, "MAX_RETRY")
 }
 
-func TestValidationSeesFlagsAndEnv(t *testing.T) {
-	t.Setenv("WORKERS", "0")
-	c := NewCommand()
-	require.NoError(t, c.ParseFlags(nil))
-	assert.ErrorContains(t, c.PreRunE(c, nil), "workers")
+func TestValidationNamesTheVariable(t *testing.T) {
+	for name, env := range map[string]map[string]string{
+		"a number out of range": {"WORKERS": "0"},
+		"a bad log level":       {"LOG_LEVEL": "bogus"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := NewCommand()
+			clearEnv(t, c.Flags())
+			var variable string
+			for k, v := range env {
+				t.Setenv(k, v)
+				variable = k
+			}
+			require.NoError(t, c.ParseFlags(nil))
+			assert.ErrorContains(t, c.PreRunE(c, nil), variable)
+		})
+	}
+}
+
+func TestActionRetry(t *testing.T) {
+	o, err := parse(t, "--action-retry")
+	require.NoError(t, err)
+	assert.True(t, o.ActionRetry)
+
+	t.Setenv("ACTION_RETRY", "true")
+	o, err = parse(t)
+	require.NoError(t, err)
+	assert.True(t, o.ActionRetry)
 }
