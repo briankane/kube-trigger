@@ -97,16 +97,16 @@ func NewCommand() *cobra.Command {
 		Use:  "kubetrigger",
 		Long: cmdLongHelp,
 		RunE: runCli,
-		PreRunE: func(_ *cobra.Command, _ []string) error {
+		PreRunE: func(c *cobra.Command, _ []string) error {
 			logger.Infof("kube-trigger version=%s", version.Version)
-			return nil
+			if err := applyEnv(c.Flags()); err != nil {
+				return err
+			}
+			return opt.validate()
 		},
 	}
 	c.AddCommand(newVersionCommand())
 	addFlags(opt, c.Flags())
-	if err := opt.validate(); err != nil {
-		panic(err)
-	}
 	return c
 }
 
