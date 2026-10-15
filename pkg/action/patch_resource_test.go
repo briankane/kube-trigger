@@ -69,6 +69,13 @@ func TestPatchResourceTarget(t *testing.T) {
 			properties: resource(map[string]interface{}{"name": "my-cm"}),
 			name:       "my-cm", namespace: "default",
 		},
+		"direct fields win over metadata": {
+			properties: resource(map[string]interface{}{
+				"name": "my-cm", "namespace": "shop",
+				"metadata": map[string]interface{}{"name": "other", "namespace": "elsewhere"},
+			}),
+			name: "my-cm", namespace: "shop",
+		},
 		"under metadata": {
 			properties: resource(map[string]interface{}{"metadata": map[string]interface{}{"name": "my-cm", "namespace": "shop"}}),
 			name:       "my-cm", namespace: "shop",
