@@ -185,13 +185,6 @@ func TestSameJobRequeuing(t *testing.T) {
 	err = e.AddJob(j3)
 	a.NoError(err)
 
-	// j3's ID differs from the running jobs', so it is never requeued and the
-	// poll's result says nothing either way.
-	//lint:ignore SA4006 see above
-	err = wait.PollUntilContextTimeout(context.Background(), 1*time.Millisecond, 500*time.Millisecond, false, func(_ context.Context) (done bool, err error) {
-		return e.queue.NumRequeues(j3) >= 2, nil
-	})
-
 	cancel()
 	<-ch
 	a.NoError(waitForAdded(e.queue, 0))

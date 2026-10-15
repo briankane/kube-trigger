@@ -24,6 +24,9 @@ jobs:
   detect-noop:
     name: Detect No-op Changes
     runs-on: ubuntu-latest
+    permissions:
+      actions: write # for skip-duplicate-actions to skip or stop workflow runs
+      contents: read # for paths_ignore to read the changed files
     outputs:
       noop: ${{ steps.noop.outputs.should_skip }}
     steps:
@@ -34,7 +37,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           paths_ignore: '["**.md", "**.mdx", "**.png", "**.jpg", "**.svg"]'
           do_not_skip: '["workflow_dispatch", "schedule", "push"]'
-          concurrent_skipping: false
+          concurrent_skipping: 'never'
+        # A fork PR's token cannot cancel runs; carry on rather than skip every job.
+        continue-on-error: true
 
   checks:
     name: Check Go Code

@@ -16,7 +16,8 @@ jobs:
     name: Detect No-op Changes
     runs-on: ubuntu-latest
     permissions:
-      actions: write # for fkirc/skip-duplicate-actions to skip or stop workflow runs
+      actions: write # for skip-duplicate-actions to skip or stop workflow runs
+      contents: read # for paths_ignore to read the changed files
     outputs:
       noop: ${{ steps.noop.outputs.should_skip }}
     steps:
@@ -40,14 +41,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [ kube-trigger, kube-trigger-manager ]
+        include:
+          - subproject: trigger
+            image: kube-trigger
+          - subproject: manager
+            image: kube-trigger-manager
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # make container builds both images, the worker and the manager.
-      - name: Build Images
-        run: make container IMAGE_TAG=scan
+      - name: Build Image
+        run: make ${{ matrix.subproject }}-container IMAGE_TAG=scan
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.36.0
