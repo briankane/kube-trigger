@@ -428,7 +428,7 @@ Default: `true`
 
 | CLI                        | ENV    | KubeTrigger CRD                                                           |
 |----------------------------|--------|---------------------------------------------------------------------------|
-| `--enable-cel-expressions` | `TODO` | `metadata.annotations["trigger.oam.dev/cel-expressions"]` (`"false"` opts out) |
+| `--enable-cel-expressions` | `ENABLE_CEL_EXPRESSIONS` | `metadata.annotations["trigger.oam.dev/cel-expressions"]` (`"false"` opts out) |
 
 ## Roadmap
 

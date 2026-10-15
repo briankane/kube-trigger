@@ -53,13 +53,21 @@ type Filter struct {
 
 // NewFilter plans filter if it is CEL: exactly one $( ) expression, with
 // nothing around it but space. It reports false for any other filter, which is
-// CUE. A CEL filter that does not compile is an error.
+// CUE. A CEL filter that does not parse or compile is an error, including one
+// that opens with $( and never closes.
 func NewFilter(filter string) (*Filter, bool, error) {
-	parsed, err := template.Parse(strings.TrimSpace(filter))
-	if err != nil || len(parsed.Fragments) != 1 || !parsed.Fragments[0].IsExpr() {
+	trimmed := strings.TrimSpace(filter)
+	parsed, err := template.Parse(trimmed)
+	if err != nil {
+		if strings.HasPrefix(trimmed, "$(") {
+			return nil, true, err
+		}
 		return nil, false, nil
 	}
-	plan, err := engine.Plan(map[string]interface{}{filterKey: strings.TrimSpace(filter)})
+	if len(parsed.Fragments) != 1 || !parsed.Fragments[0].IsExpr() {
+		return nil, false, nil
+	}
+	plan, err := engine.Plan(map[string]interface{}{filterKey: trimmed})
 	if err != nil {
 		return nil, true, err
 	}

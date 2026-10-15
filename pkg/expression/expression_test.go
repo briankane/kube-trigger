@@ -105,6 +105,7 @@ func TestNewFilterRefusesABadExpression(t *testing.T) {
 	for name, filter := range map[string]string{
 		"does not compile":      `$(context.data.status.phase ==)`,
 		"reads an unknown name": `$(date == "today")`,
+		"is never closed":       `$(context.data.status.phase == "Running"`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, _, err := NewFilter(filter)

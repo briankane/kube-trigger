@@ -18,12 +18,12 @@ package eventhandler
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kubevela/kube-trigger/api/v1alpha1"
 )
@@ -71,14 +71,12 @@ func TestNewFromConfigRefusesBadExpressions(t *testing.T) {
 
 func TestCELFilterKeepsEvents(t *testing.T) {
 	// Read as CUE, this filter would not compile and the event would be dropped.
-	eh, err := NewFromConfig(context.Background(), nil, v1alpha1.ActionMeta{Type: "unused"}, `$(context.data.status.phase == "Pending")`, nil, Options{})
+	cli := fake.NewClientBuilder().Build()
+	eh, err := NewFromConfig(context.Background(), cli, v1alpha1.ActionMeta{Type: "unused"}, `$(context.data.status.phase == "Pending")`, nil, Options{})
 	require.NoError(t, err)
 
-	// Past the filter, building the job needs a cluster this test has not got.
-	var handlerErr error
-	func() {
-		defer func() { _ = recover() }()
-		handlerErr = eh("resource-watcher", "update", object())
-	}()
-	assert.NotEqual(t, "event is filtered out", fmt.Sprint(handlerErr))
+	// Past the filter, the action has no definition in this cluster.
+	err = eh("resource-watcher", "update", object())
+	require.Error(t, err)
+	assert.NotEqual(t, "event is filtered out", err.Error())
 }
