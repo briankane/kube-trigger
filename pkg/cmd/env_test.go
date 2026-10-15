@@ -27,8 +27,10 @@ import (
 )
 
 // clearEnv unsets every flag's variable for the test, so nothing the test
-// process inherits leaks in.
-func clearEnv(t *testing.T, fs *pflag.FlagSet) {
+// process inherits leaks in. Each test calls it before setting its own.
+func clearEnv(t *testing.T) {
+	fs := pflag.NewFlagSet("kubetrigger", pflag.ContinueOnError)
+	addFlags(newOption(), fs)
 	fs.VisitAll(func(f *pflag.Flag) {
 		t.Setenv(envName(f.Name), "")
 		require.NoError(t, os.Unsetenv(envName(f.Name)))
@@ -46,6 +48,7 @@ func parse(t *testing.T, args ...string) (*option, error) {
 }
 
 func TestEnvSetsAFlagNotGiven(t *testing.T) {
+	clearEnv(t)
 	t.Setenv("MAX_RETRY", "9")
 	o, err := parse(t)
 	require.NoError(t, err)
@@ -53,6 +56,7 @@ func TestEnvSetsAFlagNotGiven(t *testing.T) {
 }
 
 func TestFlagBeatsEnv(t *testing.T) {
+	clearEnv(t)
 	t.Setenv("MAX_RETRY", "9")
 	o, err := parse(t, "--max-retry=3")
 	require.NoError(t, err)
@@ -60,15 +64,14 @@ func TestFlagBeatsEnv(t *testing.T) {
 }
 
 func TestDefaultWithoutEither(t *testing.T) {
-	fs := pflag.NewFlagSet("kubetrigger", pflag.ContinueOnError)
-	addFlags(newOption(), fs)
-	clearEnv(t, fs)
+	clearEnv(t)
 	o, err := parse(t)
 	require.NoError(t, err)
 	assert.Equal(t, defaultMaxRetry, o.MaxRetry)
 }
 
 func TestEnvNames(t *testing.T) {
+	clearEnv(t)
 	t.Setenv("PER_WORKER_QPS", "7")
 	t.Setenv("LEADER_ELECT", "true")
 	t.Setenv("LEADER_ELECTION_LEASE_DURATION", "42s")
@@ -80,19 +83,21 @@ func TestEnvNames(t *testing.T) {
 }
 
 func TestBadEnvValueNamesItsVariable(t *testing.T) {
+	clearEnv(t)
 	t.Setenv("MAX_RETRY", "lots")
 	_, err := parse(t)
 	assert.ErrorContains(t, err, "MAX_RETRY")
 }
 
 func TestValidationNamesTheVariable(t *testing.T) {
+	clearEnv(t)
 	for name, env := range map[string]map[string]string{
 		"a number out of range": {"WORKERS": "0"},
 		"a bad log level":       {"LOG_LEVEL": "bogus"},
 	} {
 		t.Run(name, func(t *testing.T) {
+			clearEnv(t)
 			c := NewCommand()
-			clearEnv(t, c.Flags())
 			var variable string
 			for k, v := range env {
 				t.Setenv(k, v)
@@ -105,6 +110,7 @@ func TestValidationNamesTheVariable(t *testing.T) {
 }
 
 func TestActionRetry(t *testing.T) {
+	clearEnv(t)
 	o, err := parse(t, "--action-retry")
 	require.NoError(t, err)
 	assert.True(t, o.ActionRetry)
